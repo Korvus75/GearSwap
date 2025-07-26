@@ -326,8 +326,8 @@ function init_include()
 	optional_include(player.name..'-Globals.lua')
 	optional_include(player.name..'-Items.lua')
 	optional_include(player.name..'_Crafting.lua')
-	include(player.name..'_'..player.main_job..'_gear.lua') -- Required Gear file.
 	optional_include('User-'..player.main_job..'.lua')
+	include(player.name..'_'..player.main_job..'_gear.lua') -- Required Gear file.
 
 	-- New Display functions, needs to come after globals for user settings.
 	include('Sel-Display.lua')
@@ -362,6 +362,10 @@ function init_include()
 	-- Job-User-specific var initialization and setup.
 	if user_job_setup then
 		user_job_setup()
+	end
+	
+	if character_user_job_setup then
+		character_user_job_setup()
 	end
 	
 	if extra_user_setup then
@@ -1072,39 +1076,41 @@ function general_post_midcast(spell, spellMap, eventArgs)
 	if not eventArgs.handled then
 		if spell.action_type == 'Magic' then
 			if is_nuke(spell, spellMap) then
-				if state.MagicBurstMode.value ~= 'Off' and state.CastingMode.value ~= 'Proc' then
-					if spellMap == 'Helix' and state.CastingMode.value:contains('Resistant') and sets.ResistantHelixBurst then
-						equip(sets.ResistantHelixBurst)
-					elseif state.CastingMode.value:contains('Resistant') and sets.ResistantMagicBurst then
-						equip(sets.ResistantMagicBurst)
-					elseif spellMap == 'Helix' and sets.HelixBurst then
-						equip(sets.HelixBurst)
-					elseif sets.MagicBurst then
-						equip(sets.MagicBurst)
-					end
-				end
-
-				set_elemental_obi_cape_ring(spell, spellMap)
-
-				if spell.element and sets.element[spell.element] and state.CastingMode.value ~= 'Proc' then
-					if sets.element[spell.element][state.CastingMode.value] then
-						equip(sets.element[spell.element][state.CastingMode.value])
-					else
-						equip(sets.element[spell.element])
-					end
-				end
-
-				if state.RecoverMode.value ~= 'Never' and not (state.Buff['Manafont'] or state.Buff['Manawell']) and (state.RecoverMode.value == 'Always' or tonumber(state.RecoverMode.value:sub(1, -2)) > player.mpp) then
+				if state.CastingMode.value ~= 'Proc' and state.CastingMode.value ~= 'OccultAcumen' then
 					if state.MagicBurstMode.value ~= 'Off' then
-						if state.CastingMode.value:contains('Resistant') and sets.ResistantRecoverBurst then
-							equip(sets.ResistantRecoverBurst)
-						elseif sets.RecoverBurst then
-							equip(sets.RecoverBurst)
+						if spellMap == 'Helix' and state.CastingMode.value:contains('Resistant') and sets.ResistantHelixBurst then
+							equip(sets.ResistantHelixBurst)
+						elseif state.CastingMode.value:contains('Resistant') and sets.ResistantMagicBurst then
+							equip(sets.ResistantMagicBurst)
+						elseif spellMap == 'Helix' and sets.HelixBurst then
+							equip(sets.HelixBurst)
+						elseif sets.MagicBurst then
+							equip(sets.MagicBurst)
+						end
+					end
+
+					set_elemental_obi_cape_ring(spell, spellMap)
+
+					if spell.element and sets.element[spell.element] then
+						if sets.element[spell.element][state.CastingMode.value] then
+							equip(sets.element[spell.element][state.CastingMode.value])
+						else
+							equip(sets.element[spell.element])
+						end
+					end
+
+					if state.RecoverMode.value ~= 'Never' and not (state.Buff['Manafont'] or state.Buff['Manawell']) and (state.RecoverMode.value == 'Always' or tonumber(state.RecoverMode.value:sub(1, -2)) > player.mpp) then
+						if state.MagicBurstMode.value ~= 'Off' then
+							if state.CastingMode.value:contains('Resistant') and sets.ResistantRecoverBurst then
+								equip(sets.ResistantRecoverBurst)
+							elseif sets.RecoverBurst then
+								equip(sets.RecoverBurst)
+							elseif sets.RecoverMP then
+								equip(sets.RecoverMP)
+							end
 						elseif sets.RecoverMP then
 							equip(sets.RecoverMP)
 						end
-					elseif sets.RecoverMP then
-						equip(sets.RecoverMP)
 					end
 				end
 			elseif spellMap == 'Regen' then
@@ -1406,7 +1412,7 @@ function default_tick()
 	if check_cpring_buff() then return true end
 	if state.Buff['Sneak'] then return false end
 	if check_ws() then return true end
-	if check_jump() then return true end
+	if check_jump(false) then return true end
 	if check_nuke() then return true end
 	return false
 end
@@ -2438,6 +2444,10 @@ function buff_change(buff, gain)
 		end
 	elseif buff == 'sleep' or buff == 'Lullaby' then
 		if gain then
+			if  state.CancelStoneskin.value then
+				send_command('cancel stoneskin')
+			end
+		
 			if item_equippable("Sacrifice Torque") and pet.isvalid then
 				internal_disable_set({neck="Sacrifice Torque"}, "Sleep")
 			elseif player.status == 'Engaged' then
