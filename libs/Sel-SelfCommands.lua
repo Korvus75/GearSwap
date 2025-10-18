@@ -1574,11 +1574,16 @@ end
 
 -- A function for testing lua code.  Called via "gs c test".
 function handle_test(cmdParams)
+	windower.add_to_chat('Main: '..player.equipment.main)
 	if user_test then
 		user_test(cmdParams)
 	elseif job_test then
 		job_test(cmdParams)
 	end
+end
+
+function handle_equiptest()
+	table.vprint(player.equipment)
 end
 
 -------------------------------------------------------------------------------------------------------------------

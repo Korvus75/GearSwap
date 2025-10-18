@@ -67,14 +67,14 @@ function cancel_conflicting_buffs(spell, spellMap, eventArgs)
 			send_command('cancel sneak')
 		elseif spell.english == ('Stoneskin') or spell.english == ('Diamondhide') or spell.english == ('Magic Barrier') then
 			send_command('cancel stoneskin')
-		elseif spell.english == 'Utsusemi: Ni' and player.main_job == 'NIN' and lastshadow == 'Utsusemi: San' then
+		elseif spell.english == 'Utsusemi: Ni' and player.main_job == 'NIN' then
 			if buffactive['Copy Image (4+)'] and conserveshadows then
 				add_to_chat(123,'Abort: You have four or more shadows.')
 				eventArgs.cancel = true
 			else
 				send_command('@wait '..utsusemi_ni_cancel_delay..';cancel copy image*')
 			end
-		elseif spell.english == 'Utsusemi: Ichi' and lastshadow ~= 'Utsusemi: Ichi' then
+		elseif spell.english == 'Utsusemi: Ichi' then
 			if (buffactive['Copy Image (3)'] or buffactive['Copy Image (4+)']) and conserveshadows then
 				add_to_chat(123,'Abort: You have three or more shadows.')
 				eventArgs.cancel = true
@@ -507,14 +507,21 @@ end
 function optional_include(filename)
 	if filename:startswith('User') then
 		if windower.file_exists(windower.addon_path..'Data/User/'..filename) then
-			include('User/'..filename)
+			local loaded, errormessage = pcall(include,'User/'..filename)
+			if not loaded then
+				print(errormessage)
+				windower.add_to_chat(errormessage)
+			end
 		else
-			print('Missing optional file: User\\\\'..filename..', this is not an error, just a notification of a filename you can use to add your own custom code.')
+			print('No optional file: User\\\\'..filename..', this is not an error, just a notification of a filename you can use to add your own custom code.')
 			return false
 		end
 	else
 		if gearswap.pathsearch({filename}) then
-			include(filename)
+			local loaded, errormessage = pcall(include,filename)
+			if not loaded then
+				windower.add_to_chat(errormessage)
+			end
 		else
 			print('Missing optional file: '..player.name..'\\\\'..filename..', this is not an error, just a notification of a filename you can use to add your own custom code.')
 			return false
@@ -1073,6 +1080,7 @@ function just_acted(spell, spellMap, eventArgs)
 		if eventArgs and not state.RngHelper.value and state.MiniQueue.value and not (spell.type:startswith('BloodPact') and state.Buff["Astral Conduit"]) then
 			cancel_spell()
 			eventArgs.cancel = true
+			delayed_prefix = spell.prefix or ''
 			delayed_cast = spell.english or ''
 			delayed_target = spell.target.id or ''
 		end
@@ -1199,6 +1207,7 @@ function check_recast(spell, spellMap, eventArgs)
 					local seconds = seconds_to_clock(abil_recasts[spell.recast_id], 'seconds')
 					add_to_chat(123,'Abort: ['..spell.english..'] waiting on recast, attempting to cast in ('..seconds..') seconds.')
 					eventArgs.cancel = true
+					delayed_prefix = spell.prefix or ''
 					delayed_cast = spell.english or ''
 					delayed_target = spell.target.id or ''
 					add_tick_delay(tonumber(seconds) +.1)
@@ -1220,6 +1229,7 @@ function check_recast(spell, spellMap, eventArgs)
 					local seconds = seconds_to_clock(spell_recasts[spell.recast_id]/60, 'seconds')
 					add_to_chat(123,'Abort: ['..spell.english..'] waiting on recast, attempting to cast in ('..seconds..') seconds.')
 					eventArgs.cancel = true
+					delayed_prefix = spell.prefix or ''
 					delayed_cast = spell.english or ''
 					delayed_target = spell.target.id or ''
 					add_tick_delay(tonumber(seconds) +.1)
@@ -1771,9 +1781,14 @@ function check_doomed()
 end
 
 function check_delayed_cast()
-	if delayed_cast ~= '' then
-		send_command(''..delayed_cast..' '..delayed_target..'')
+	if delayed_prefix ~= '' and delayed_cast ~= '' then
+		if delayed_cast == 'Ranged' then
+			windower.chat.input(''..delayed_prefix..' '..delayed_target..'')
+		else
+			windower.chat.input(''..delayed_prefix..' "'..delayed_cast..'" '..delayed_target..'')
+		end
 		add_tick_delay()
+		delayed_prefix = ''
 		delayed_cast = ''
 		delayed_target = ''
 		return true
@@ -1796,35 +1811,36 @@ function check_ws()
 	if state.AutoWSMode.value and not state.RngHelper.value and player.status == 'Engaged' and player.target and player.target.type == "MONSTER" and player.tp > 999 and not silent_check_amnesia() and not (player.target.distance > (19.7 + player.target.model_size)) then
 
 	local available_ws = S(windower.ffxi.get_abilities().weapon_skills)
+	local in_melee_range = player.target.distance < (3.2 + player.target.model_size)
 
-		if player.hpp < 41 and state.AutoWSRestore.value and available_ws:contains(47) and player.target.distance < (3.2 + player.target.model_size) then
+		if player.hpp < 41 and state.AutoWSRestore.value and available_ws:contains(47) and in_melee_range then
 			windower.chat.input('/ws "Sanguine Blade" <t>')
 			add_tick_delay()
 			return true
-		elseif player.hpp < 41 and state.AutoWSRestore.value and available_ws:contains(105) and player.target.distance < (3.2 + player.target.model_size) then
+		elseif player.hpp < 41 and state.AutoWSRestore.value and available_ws:contains(105) and in_melee_range then
 			windower.chat.input('/ws "Catastrophe" <t>')
 			add_tick_delay()
 			return true
-		elseif player.mpp < 31 and state.AutoWSRestore.value and available_ws:contains(109) and player.target.distance < (3.2 + player.target.model_size) then
+		elseif player.mpp < 31 and state.AutoWSRestore.value and available_ws:contains(109) and in_melee_range then
 			windower.chat.input('/ws "Entropy" <t>')
 			add_tick_delay()
 			return true
-		elseif player.mpp < 31 and state.AutoWSRestore.value and available_ws:contains(171) and player.target.distance < (3.2 + player.target.model_size) then
+		elseif player.mpp < 31 and state.AutoWSRestore.value and available_ws:contains(171) and in_melee_range then
 			windower.chat.input('/ws "Mystic Boon" <t>')
 			add_tick_delay()
 			return true
-		elseif player.target.distance > (3.2 + player.target.model_size) and not data.weaponskills.ranged:contains(autows) then
+		elseif not (in_melee_range or data.weaponskills.ranged:contains(autows)) then
 			return false
 		elseif data.equipment.relic_weapons:contains(player.equipment.main) and state.MaintainAftermath.value and (not buffactive['Aftermath']) then
 			windower.chat.input('/ws "'..data.weaponskills.relic[player.equipment.main]..'" <t>')
 			add_tick_delay()
 			return true
-		elseif (buffactive['Aftermath: Lv.3'] or not state.MaintainAftermath.value or not data.equipment.mythic_weapons:contains(player.equipment.main)) and player.tp >= autowstp then
+		elseif (buffactive['Aftermath: Lv.3'] or not state.MaintainAftermath.value or not data.equipment.aftermath_weapons:contains(player.equipment.main)) and player.tp >= autowstp then
 			windower.chat.input('/ws "'..autows..'" <t>')
 			add_tick_delay()
 			return true
 		elseif player.tp == 3000 then
-			windower.chat.input('/ws "'..data.weaponskills.mythic[player.equipment.main]..'" <t>')
+			windower.chat.input('/ws "'..data.weaponskills.aftermath[player.equipment.main]..'" <t>')
 			add_tick_delay()
 			return true
 		else
@@ -2577,7 +2593,11 @@ function get_item_table(item)
 end
 
 function is_rare(item)
-	return get_item_table(item).flags:contains('Rare')
+	if item ~= 'empty' then
+		return get_item_table(item).flags:contains('Rare')
+	else
+		return false
+	end
 end
 
 function set_to_item(set)

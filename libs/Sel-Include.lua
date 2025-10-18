@@ -236,6 +236,7 @@ function init_include()
 	currency_bag = 'sack'
 	default_dual_weapons = 'DualWeapons'
 	default_weapons = ''
+	delayed_prefix = ''
 	delayed_cast = ''
 	delayed_target = ''
 	equipped = 0
@@ -268,7 +269,6 @@ function init_include()
 	elemental_magic_proc_target_id = ''
 
 	-- Buff tracking that buffactive can't detect
-	lastshadow = "Utsusemi: San"
 	lastwarcry = ''
 	lasthaste = 1
 	lastflurry = 1
@@ -327,7 +327,11 @@ function init_include()
 	optional_include(player.name..'-Items.lua')
 	optional_include(player.name..'_Crafting.lua')
 	optional_include('User-'..player.main_job..'.lua')
-	include(player.name..'_'..player.main_job..'_gear.lua') -- Required Gear file.
+	local loaded, errormessage = pcall(include,player.name..'_'..player.main_job..'_gear.lua') -- Required Gear file.
+	if not loaded then
+		print(errormessage)
+		windower.add_to_chat(errormessage)
+	end
 
 	-- New Display functions, needs to come after globals for user settings.
 	include('Sel-Display.lua')
@@ -972,6 +976,7 @@ end
 
 function default_precast(spell, spellMap, eventArgs)
 	prepared_action = spell.english
+	delayed_prefix = ''
 	delayed_cast = ''
 	delayed_target = ''
 	cancel_conflicting_buffs(spell, spellMap, eventArgs)
@@ -1261,8 +1266,6 @@ function default_aftercast(spell, spellMap, eventArgs)
 				useItemName = ''
 				useItemSlot = ''
 			end
-		elseif spell.english:startswith('Utsusemi') then
-			lastshadow = spell.english
 		elseif is_nuke(spell, spellMap) then
 			if state.MagicBurstMode.value == 'Single' then state.MagicBurstMode:reset() end
 			if state.ElementalWheel.value and (spell.skill == 'Elemental Magic' or spellMap:contains('ElementalNinjutsu')) then
@@ -2468,8 +2471,6 @@ function buff_change(buff, gain)
 		else
 			internal_enable_set("Sleep")
 		end
-	elseif (buff == 'Blink' or buff == 'Third Eye' or buff:startswith('Copy Image')) then
-		if not gain then lastshadow = "None" end
 	elseif (buff == 'Commitment' or buff == 'Dedication' or buff == "Emporox's Gift") then
 		if gain and state.Capacity.value then
 			internal_enable_set("UseItem")
